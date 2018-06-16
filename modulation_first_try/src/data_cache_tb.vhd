@@ -37,6 +37,7 @@ architecture rtl of data_cache_tb is
   signal clk_out :std_logic:='1';
   signal data_in :std_logic_vector(0 downto 0);
   signal en_in	:std_logic:='0';
+  signal en_in_reg:std_logic:='0';
   signal en_out:std_logic:='0';
   signal valid_out:std_logic:='0';
   signal data_out:std_logic_vector(0 downto 0);
@@ -62,7 +63,7 @@ architecture rtl of data_cache_tb is
       clk_in=>clk_in,
       clk_out=>clk_out,
       data_in=>data_in,
-      en_in=>en_in,
+      en_in=>en_in_reg,
       en_out=>en_out,
       valid_out=>valid_out,
       data_out=>data_out,
@@ -99,7 +100,7 @@ architecture rtl of data_cache_tb is
  en_in_gen:process  
   begin  
    en_in<='0';  
-    wait for 80 ns;  
+    wait for 120 ns;  
     en_in<='1';  
     wait for 2560ns;
     en_in<='0'; 
@@ -136,7 +137,7 @@ architecture rtl of data_cache_tb is
     en_out<='1'; 
     wait for 640ns;
     en_out<='0';  
-    wait for 8440ns;
+    wait for 6440ns;
     en_out<='1';
      wait for 640ns;
     en_out<='0';  
@@ -162,19 +163,29 @@ architecture rtl of data_cache_tb is
       
      begin  
       if reset='1' then
-        data_in<="0";
-        elsif  clk_in'event and clk_in='1' and  en_in='1' then
+        data_in<="X";
+      elsif  rising_edge(clk_in) then
+        if  en_in='1' then
+        --elsif  clk_in'event and clk_in='1' and  en_in='1' then
+           en_in_reg<='1';
        -- if en_in='1' then
-        if not(endfile(simu_din)) then
-        readline(simu_din,line_in);
-        read(line_in,data_in_tmp);        
-        data_in<=data_in_tmp;
+          if not(endfile(simu_din)) then
+             readline(simu_din,line_in);
+             read(line_in,data_in_tmp);        
+             data_in<=data_in_tmp;
+          else
+          assert false
+          report "Simulation is finished!"
+          severity Failure;
+          end if;
         else
-        assert false
-        report "Simulation is finished!"
-        severity Failure;
+          data_in<="X";
         end if;
+       else
+        en_in_reg<='0';
       end if;
   end process;  
+
+  
 
 end rtl;  
