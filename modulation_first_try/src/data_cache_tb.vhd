@@ -111,6 +111,18 @@ architecture rtl of data_cache_tb is
     en_in<='1'; 
     wait for 2560ns;
     en_in<='0'; 
+    wait for 8000 ns;  
+    en_in<='1';  
+    wait for 2560ns;
+    en_in<='0'; 
+    wait for 3320ns;
+    en_in<='1'; 
+    wait for 2560ns;
+    en_in<='0'; 
+     wait for 12800ns;
+    en_in<='1'; 
+    wait for 2560ns;
+    en_in<='0'; 
     wait;
   end process;  
       
@@ -122,16 +134,24 @@ architecture rtl of data_cache_tb is
     --wait for 2300 ns;  --未存完，但是可以直接读 valid_out 差一个时钟
     --wait for 2860 ns;  --已存完，直接读
     en_out<='1'; 
-    wait for 30ns;
+    wait for 640ns;
     en_out<='0';  
-    wait for 13440ns;
+    wait for 8440ns;
     en_out<='1';
-     wait for 30ns;
+     wait for 640ns;
     en_out<='0';  
-    wait for 70800ns;
+    wait for 13500ns;
     en_out<='1';
-     wait for 30ns;
+    wait for 640ns;
     en_out<='0';  
+    wait for 8440ns;
+    en_out<='1';
+    wait for 640ns; 
+    en_out<='0';  
+    wait for 6440ns;
+    en_out<='1';
+    wait for 640ns;
+    en_out<='0'; 
     wait;
   end process;  
   
