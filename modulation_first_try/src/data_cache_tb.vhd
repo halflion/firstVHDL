@@ -100,7 +100,7 @@ architecture rtl of data_cache_tb is
  en_in_gen:process  
   begin  
    en_in<='0';  
-    wait for 120 ns;  
+    wait for 360 ns;  
     en_in<='1';  
     wait for 2560ns;
     en_in<='0'; 
@@ -131,7 +131,7 @@ architecture rtl of data_cache_tb is
  en_out_gen:process  
   begin  
    en_out<='0';  
-    wait for 400 ns;  --需要等待
+    wait for 600 ns;  --需要等待
     --wait for 2300 ns;  --未存完，但是可以直接读 valid_out 差一个时钟
     --wait for 2860 ns;  --已存完，直接读
     en_out<='1'; 
@@ -143,7 +143,7 @@ architecture rtl of data_cache_tb is
     en_out<='0';  
     wait for 13500ns;
     en_out<='1';
-    wait for 640ns;
+    wait for 6400ns;
     en_out<='0';  
     wait for 8440ns;
     en_out<='1';
@@ -153,6 +153,10 @@ architecture rtl of data_cache_tb is
     en_out<='1';
     wait for 640ns;
     en_out<='0'; 
+         wait for 12800ns;
+   en_out<='1'; 
+   wait for 2560ns;
+   en_out<='0'; 
     wait;
   end process;  
   
@@ -163,7 +167,8 @@ architecture rtl of data_cache_tb is
       
      begin  
       if reset='1' then
-        data_in<="X";
+        data_in<="0";
+        en_in_reg<='0';
       elsif  rising_edge(clk_in) then
         if  en_in='1' then
         --elsif  clk_in'event and clk_in='1' and  en_in='1' then
@@ -179,10 +184,10 @@ architecture rtl of data_cache_tb is
           severity Failure;
           end if;
         else
-          data_in<="X";
+          data_in<="0";
+          en_in_reg<='0';
         end if;
-       else
-        en_in_reg<='0';
+        
       end if;
   end process;  
 
