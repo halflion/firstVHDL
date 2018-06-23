@@ -24,7 +24,8 @@ architecture rtl of frame_gen_tb is
                 eop      	: in std_logic;
                 sop	        : in std_logic;
 
-                data_out  	: out std_logic_vector(0 downto 0);
+                data_out_I  	: out std_logic_vector(0 downto 0);
+                data_out_Q 	: out std_logic_vector(0 downto 0);
                 valid_out   : out std_logic;
                 data_en     : out std_logic);   
     end component;  
@@ -36,7 +37,8 @@ architecture rtl of frame_gen_tb is
     signal en_in :  STD_LOGIC;  
     signal sop :   STD_LOGIC;
     signal eop :   STD_LOGIC;
-    signal data_out:  std_logic_vector(0 downto 0);
+    signal data_out_I:  std_logic_vector(0 downto 0);
+    signal data_out_Q:  std_logic_vector(0 downto 0);
     signal valid_out :   STD_LOGIC;
     signal data_en :  STD_LOGIC;
     signal en_in_reg : STD_LOGIC;
@@ -59,7 +61,8 @@ architecture rtl of frame_gen_tb is
                 valid_in    =>en_in_reg  ,
                 eop         =>eop        ,
                 sop	        =>sop	     ,
-                data_out    =>data_out   ,
+                data_out_I    =>data_out_I   ,
+                data_out_Q    =>data_out_Q   ,
                 valid_out   =>valid_out  ,               
                 data_en     =>data_en    
             );  

@@ -25,7 +25,8 @@ entity frame_gen is
 		eop	: in std_logic;
 		sop	: in std_logic;
 
-		data_out  	: out std_logic_vector(0 downto 0);
+		data_out_I : out std_logic_vector(0 downto 0);
+		data_out_Q 	: out std_logic_vector(0 downto 0);
 		valid_out   : out std_logic;
 		data_en     : out std_logic   
 		);
@@ -40,7 +41,7 @@ architecture rtl of frame_gen is
 			din           : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
 			wr_en         : IN STD_LOGIC;
 			rd_en         : IN STD_LOGIC;
-			dout          : OUT STD_LOGIC_VECTOR(0 DOWNTO 0);
+			dout          : OUT STD_LOGIC_VECTOR(1 DOWNTO 0);
 			full          : OUT STD_LOGIC;
 			empty         : OUT STD_LOGIC
 		);
@@ -50,24 +51,26 @@ architecture rtl of frame_gen is
 	constant cp_len : positive :=32; 
 	constant lp_len : positive :=32; 
 	constant frame_len : positive := 544;--255*2+34
-	constant data_len : positive :=32;
+	constant data_len_actual : positive :=32;
+	constant data_len : positive :=16;--转成IQ之后
 	constant UW_len : positive :=32;
 	constant sp_gen : std_logic_vector(0 to sp_len-1) :=
 	"11111110111010100001001011011111";
 	constant CP_gen : std_logic_vector(0 to cp_len-1) :=
-	"11000110111010100001001011001110";
+	"00000110111010100001001011000000";
 	constant LP_gen : std_logic_vector(0 to lp_len-1) :=
-	"10011110001000111010001001100100";
+	"11111111000100011101000100111111";
 	constant UW_gen : std_logic_vector(0 to UW_len-1) := --pn31 code+1bit=32bits
-	"11000111110011010010000101011100"; --the last bit is added!! 
+	"00000111110011010010000101011100"; --the last bit is added!! 
 	constant frame_Num : positive :=20; --frame is composed by 576 syms,section is composed by 16 frames
-	constant delay : positive :=32;
-	-- 当前配置 数据640=32*20
-	--         SP 32*4
-	-- 				CP 32*4
-	-- 				LP 32
-	-- 				UW 32
-	-- 				打包后总长度 32*9+640+32*21=1600
+	constant delay : positive :=320;
+	-- 当前配置 输入延时32
+	--         数据   640=32*20
+	--         SP   32*4
+	-- 		   CP 32*4
+	-- 	       LP 32
+	-- 	   	   UW 32
+	-- 		   打包后总长度 32*9+640+32*21=1600
 	
 	type state_t is (idle, powerrdy, sp, cp, lp, UW1, data);
 	signal state, next_state : state_t;
@@ -82,7 +85,7 @@ architecture rtl of frame_gen is
 	-- state judge
 	signal eop_dly, sop_dly : std_logic_vector(1 downto 0);
 	signal sp_finish, cp_finish, lp_finish, UW1_finish : std_logic;
-	signal UW2_finish, data_finish: std_logic;
+	signal UW2_finish, data_finish, frame_finish: std_logic;
 	signal spaddress : integer range 0 to 1023;
 	signal cpaddress : integer range 0 to 1023;
 	signal lpaddress : integer range 0 to 1023;
@@ -94,9 +97,10 @@ architecture rtl of frame_gen is
 
 	signal rden_data : std_logic;
 	-- tmp
-	signal data_out_tmp : std_logic_vector(0 downto 0);
+	signal data_out_tmp_I: std_logic_vector(0 downto 0);
+	signal data_out_tmp_Q : std_logic_vector(0 downto 0);
 	signal validout_tmp : std_logic;
-	signal ram_out_data : std_logic_vector(0 downto 0);
+	signal ram_out_data : std_logic_vector(1 downto 0);
 	signal dataen_reg : std_logic;
 	signal flag_data : std_logic;-- data frame;
 	signal cnt_cp : integer range 0 to cp_len-1;
@@ -137,7 +141,7 @@ begin
             else
                 data_send    <= '0';
             end if;
-            if sop_dly(1) = '1' then
+            if sop_dly(0) = '1' then
                 flag_data    <= '1';
             else
                 flag_data    <= flag_data;
@@ -162,7 +166,6 @@ begin
 			when idle =>
 				if data_send = '1' then --needn't wait until all the data are write into Ram
 					next_state <= powerrdy;
-					frame_count<=0;
 				end if;
 			when powerrdy =>
 				if power_ready =  '1' then
@@ -222,28 +225,35 @@ begin
 	process(clk_out,reset,state)
 	begin
       if reset ='1' then
-        data_out_tmp <= "0";
+        data_out_tmp_I <= "0";
+		data_out_tmp_Q <= "0";
         dataen_reg <= '0';
       elsif rising_edge(clk_out) then
 			  case state is
 			  	when sp =>
-						data_out_tmp <=sp_gen(spaddress to spaddress); -- 0 to sp_len-1
+						data_out_tmp_I <=sp_gen(spaddress to spaddress); -- 0 to sp_len-1
+						data_out_tmp_Q <=sp_gen(spaddress to spaddress);
 						dataen_reg <= '0';
 					when cp =>
-						data_out_tmp <=cp_gen(cpaddress to cpaddress); --I=Q; 0 to cp_len-1
+						data_out_tmp_I <=cp_gen(cpaddress to cpaddress); --I=Q; 0 to cp_len-1
+						data_out_tmp_Q <=cp_gen(cpaddress to cpaddress);
 						dataen_reg <= '0';
 					when lp =>
-						data_out_tmp <=LP_gen(lpaddress to lpaddress);
+						data_out_tmp_I <=LP_gen(lpaddress to lpaddress);
+						data_out_tmp_Q <=LP_gen(lpaddress to lpaddress);
 						dataen_reg <= '0';
 					when uw1 =>
-						data_out_tmp <=UW_gen(uw1address to uw1address); --I=Q;
+						data_out_tmp_I <=UW_gen(uw1address to uw1address); --I=Q;
+						data_out_tmp_Q <=UW_gen(uw1address to uw1address);
 						dataen_reg <= '0';
 					when data =>
 						dataen_reg <= '1';
-						data_out_tmp <=ram_out_data;
+						data_out_tmp_I <=ram_out_data(1 downto 1);
+						data_out_tmp_Q <=ram_out_data(0 downto 0);
 					when others =>
 						dataen_reg <= '0';
-						data_out_tmp <= "0";
+						data_out_tmp_I <= "0";
+						data_out_tmp_Q <= "0";
         end case;
       end if;
 	end process;       
@@ -255,13 +265,19 @@ begin
         cnt_power   <= 0;
     elsif rising_edge(clk_out) then
         if state = powerrdy then
-            if cnt_power < delay then
+            if cnt_power < delay-1 then
                 cnt_power   <= cnt_power + 1;
-            elsif cnt_power = delay then
-                power_ready <= '1';
-								cnt_power   <= 0;
+            elsif cnt_power = delay-1 then
+				cnt_power   <= 0;
             end if;
-				end if;
+			        
+			if cnt_power = delay-2 then
+                power_ready <= '1';
+			else
+				power_ready <= '0';
+            end if;
+
+		end if;
     end if;
 end process;
                 
@@ -349,86 +365,58 @@ process(clk_out,reset) --UW1_state
 		if reset ='1' then
 			uw1address <= 0;
 			uw1_finish <= '0';
+			frame_count<=0;
 		elsif rising_edge(clk_out) then
 			if state =uw1 then
-				if uw1address =uw_len-1 then --avoid overflow!
+				if uw1address =uw_len-1 and frame_count<frame_Num then --avoid overflow!
 					uw1address <=0;
-				else
+					frame_count<=frame_count+1;
+				elsif uw1address <uw_len-1 and frame_count<frame_Num then
 					uw1address <=uw1address+1;
+					
+				elsif uw1address <uw_len-1 and frame_count= frame_Num then
+                    uw1address <=uw1address+1; frame_count<=0;
+				else
+					uw1address <= 0;
+					frame_count<=0;
 				end if;
+
 				if uw1address =uw_len-2 then --62 finish =>next_state =>state
 					uw1_finish <= '1';
 				end if;
+				if frame_count= frame_Num then 
+				    frame_finish <= '1';
+					end if;
 			else
 				uw1address <= 0;
 				uw1_finish <= '0';
+				frame_finish <= '0';
 			end if;
 		end if;
 end process; 
---  process(clk_out,reset) --UW2_state
---  begin
---    if reset ='1' then
---      uw2address <= 0;
---      uw2_finish <= '0';
---    elsif rising_edge(clk_out) then
---      if state =uw2 then
---        if uw2address =uw_len then --avoid overflow!
---          uw2address <=0;
---        else
---          uw2address <=uw2address+1;
---        end if;
---        if uw2address =uw_len-1 then --62
---          uw2_finish <= '1';
---        end if;
---      else
---        uw2address <= 0;
---        uw2_finish <= '0';
---      end if;
---    end if;
---  end process;  
-  -- process(clk_out,reset) --
-	-- 	begin
-	-- 		if reset ='1' then
-	-- 				frame_count <=0;
-	-- 				data_finish <= '0';
-	-- 		elsif rising_edge(clk_out) then
-
-	-- 				if state /= idle then
-	-- 						if state = data and next_state =uw1 then
-	-- 								frame_count <=frame_count+1;
-	-- 						end if;
-	-- 						if frame_count =frame_Num then --=60 then
-	-- 						  	data_finish <='1'; 
-	-- 			--        elsif frame_count =frame_Num or frame_count=frame_Num*2 or frame_count=frame_Num*(section_Num-1) then
-	-- 						else
-	-- 						  	data_finish <='0';
-	-- 						end if;
-	-- 				else
-	-- 					  frame_count <= 0;
-	-- 				  	data_finish <= '0';
-	-- 				end if;
-	-- 		end if;
-  -- end process;
     
   process(clk_out,reset) --data_state
   begin
+
     if reset ='1' then
       count <=0;
       data_finish <= '0';
     elsif rising_edge(clk_out) then
       if state =data then
-			  if count =data_len-1 then --avoid overflow!
-					count <=0;
-				else
-					count <= count+1;
-				end if;
+			if count =data_len-1  then 
+				count <=0;
+			elsif count =data_len-1  then
+				count <=0;
+			else
+				count <= count+1;
+			end if;
         
-        if count =data_len-2 then --62
-          data_finish <= '1';
-        end if;
+			if count =data_len-2  then --62
+			data_finish <= '1';
+			end if;
       else
-        count <= 0;
-        data_finish <= '0';
+			count <= 0;
+			data_finish <= '0';
       end if;
     end if;
   end process; 
@@ -438,7 +426,7 @@ end process;
 			if reset = '1' then
 							rden_data   <= '0';
 			elsif rising_edge( clk_out ) then
-							if next_state=data then
+							if (state=uw1 and frame_count<frame_Num-1 and uw1address =uw_len-2) or (next_state=data and count<data_len-2) then
 									if flag_data = '1' then
 											rden_data   <= '1';
 									end if;
@@ -451,25 +439,27 @@ end process;
 	process(clk_out, reset) -- process:data_out
 		begin
 			if reset='1' then
-					data_out		<= (others=>'0');
+					data_out_I		<= (others=>'0');
+					data_out_Q		<= (others=>'0');
 					data_en			<= '0';
 					validout_tmp	<= '0';
 					valid_out		<= '0';
 			elsif rising_edge ( clk_out ) then
 					valid_out		<=validout_tmp;
 					if state =sp or state =cp or state=lp or state=uw1 or state=data then
-							validout_tmp <= '1';
+						validout_tmp <= '1';
 					else
-							validout_tmp <= '0';
+						validout_tmp <= '0';
 					end if;
 
 					if validout_tmp ='1' then
-							data_en			<= dataen_reg;
-							data_out	<= data_out_tmp;
+						data_en			<= dataen_reg;
+						data_out_I	<= data_out_tmp_I;
+						data_out_Q	<= data_out_tmp_Q;
 					else
 
-						data_out		<= "0";
-						data_en			<= '0';
+						data_out_I		<= (others=>'0');
+						data_out_Q		<= (others=>'0');
 					end if;
 			end if;
 	end process;
@@ -478,8 +468,3 @@ end process;
 end rtl;
 
 
-				-- if frame_count<frame_Num-1 then
-				-- 		frame_count<=frame_count+1;
-				-- else frame_count<frame_Num-1 then
-				-- 		frame_count<=0;
-				-- end if;    还没想好放哪里
